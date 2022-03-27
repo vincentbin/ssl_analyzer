@@ -12,5 +12,6 @@ services:
 
   script:
     build: .
+    container_name: ssl_analyzer
     depends_on:
       - "db"
