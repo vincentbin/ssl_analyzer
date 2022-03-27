@@ -28,6 +28,7 @@ class Clr:
     YELLOW = '\033[33m'
 
 
+print('ssl_analyzer_start')
 # db conn
 connection = get_connection()
 
@@ -422,9 +423,6 @@ def csv_reader(f_name):
 
 
 if __name__ == '__main__':
-    # SSLCheckerObject = SSLChecker()
-    # SSLCheckerObject.show_result(SSLCheckerObject.get_args(json_args={}))
-
     hosts = csv_reader('top-1m.csv')
     SSLChecker = SSLChecker()
     args = {

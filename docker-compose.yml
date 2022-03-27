@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+
+  db:
+    build: ./db
+    ports:
+      - "3306:3306"
+    container_name: mysql_ssl
+    environment:
+      - "MYSQL_ROOT_PASSWORD=123456"
+
+  script:
+    build: .
+    depends_on:
+      - "db"

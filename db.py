@@ -1,3 +1,4 @@
+import time
 import pymysql
 
 
@@ -6,14 +7,19 @@ def get_connection():
     get db conn
     :return: conn
     """
-    conn = pymysql.connect(
-        host='127.0.0.1',
-        port=3306,
-        user='root',
-        password='123456',
-        database='CertificateDB',
-        charset='utf8')
-    return conn
+    while True:
+        try:
+            conn = pymysql.connect(
+                host='db',
+                port=3306,
+                user='root',
+                password='123456',
+                database='CertificateDB',
+                charset='utf8')
+            return conn
+        except Exception as e:
+            print('wait for db.')
+            time.sleep(2)
 
 
 def close_connection(conn):
@@ -60,7 +66,7 @@ def insert_data(conn, data):
     sql = """
             INSERT INTO
                 certificate(                   
-                    domain,            
+                    issued_domain,            
                     issued_to,                
                     issued_by,                
                     valid_from,               
@@ -95,7 +101,7 @@ def batch_insert_data(conn, data):
     sql = """
             INSERT INTO
                 certificate(                   
-                    domain,            
+                    issued_domain,            
                     issued_to,                
                     issued_by,                
                     valid_from,               
@@ -121,4 +127,3 @@ def batch_insert_data(conn, data):
 
 if __name__ == '__main__':
     connection = get_connection()
-    read_data(connection, 10)
