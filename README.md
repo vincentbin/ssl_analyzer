@@ -1,5 +1,5 @@
 # ssl_analyzer
-a ssl analyzer which could analyzer target domain's certificate.
+A ssl analyzer which could analyzer target domain's certificate.
 
 ## Get start
 1. git clone https://github.com/vincentbin/ssl_analyzer.git
