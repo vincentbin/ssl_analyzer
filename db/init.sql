@@ -1,3 +1,3 @@
-source /opt/sql/createDatabase.sql;
+source /opt/sql/createDB.sql;
 use CertificateDB;
-source /opt/sql/CertificateDB.sql;
+source /opt/sql/certificateTable.sql;

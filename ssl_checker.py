@@ -8,6 +8,7 @@ from datetime import datetime
 from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
+from ocspchecker import ocspchecker
 
 from db import get_connection, insert_data, batch_insert_data
 
@@ -34,7 +35,6 @@ connection = get_connection()
 
 
 class SSLChecker:
-
     total_valid = 0
     total_expired = 0
     total_failed = 0
@@ -156,6 +156,10 @@ class SSLChecker:
         context['cert_exp'] = cert.has_expired()
         context['cert_valid'] = False if cert.has_expired() else True
 
+        status = ocspchecker.get_ocsp_status(host)
+        if status:
+            context['ocsp_status'] = status[2].split(": ")[1]
+
         # Valid from
         valid_from = datetime.strptime(cert.get_notBefore().decode('ascii'),
                                        '%Y%m%d%H%M%SZ')
@@ -228,19 +232,20 @@ class SSLChecker:
         :return: list
         """
         ret = [
-                context[host]['issued_to'],
-                context[host]['issued_o'],
-                '{} ({})'.format(context[host]['issuer_o'], context[host]['issuer_c']),
-                context[host]['valid_from'],
-                '{}({} days left)'.format(context[host]['valid_till'], context[host]['valid_days_to_expire']),
-                context[host]['validity_days'],
-                context[host]['cert_sn'],
-                context[host]['cert_ver'],
-                context[host]['cert_alg'],
-                context[host]['cert_exp']
+            context[host]['host'],
+            context[host]['issued_to'],
+            context[host]['issued_o'],
+            '{} ({})'.format(context[host]['issuer_o'], context[host]['issuer_c']),
+            context[host]['valid_from'],
+            '{}({} days left)'.format(context[host]['valid_till'], context[host]['valid_days_to_expire']),
+            context[host]['validity_days'],
+            context[host]['cert_sn'],
+            context[host]['cert_ver'],
+            context[host]['cert_alg'],
+            context[host]['ocsp_status'],
+            context[host]['cert_exp']
         ]
         return ret
-
 
     def show_result(self, user_args):
         """Get the context."""
@@ -415,10 +420,11 @@ def csv_reader(f_name):
     :return: domain list
     """
     import csv
+    print('start to read csv.')
     ret = []
     f = csv.reader(open(f_name, 'r'))
-    for l in f:
-        ret.append(l[1])
+    for line in f:
+        ret.append(line[1])
     return ret
 
 
@@ -427,6 +433,7 @@ if __name__ == '__main__':
     SSLChecker = SSLChecker()
     args = {
         'hosts': hosts
+        # 'hosts': ['baidu.com']
     }
 
     SSLChecker.show_result(SSLChecker.get_args(json_args=args))

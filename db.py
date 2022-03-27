@@ -11,6 +11,7 @@ def get_connection():
         try:
             conn = pymysql.connect(
                 host='db',
+                # host='127.0.0.1',
                 port=3306,
                 user='root',
                 password='123456',
@@ -65,7 +66,8 @@ def insert_data(conn, data):
     cursor = conn.cursor()
     sql = """
             INSERT INTO
-                certificate(                   
+                certificate(   
+                    host,               
                     issued_domain,            
                     issued_to,                
                     issued_by,                
@@ -75,10 +77,11 @@ def insert_data(conn, data):
                     certificate_sn,           
                     certificate_version,      
                     certificate_algorithm,     
+                    ocsp_status,
                     expired                  
                 )
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     try:
         cursor.execute(sql, data)
@@ -100,7 +103,8 @@ def batch_insert_data(conn, data):
     cursor = conn.cursor()
     sql = """
             INSERT INTO
-                certificate(                   
+                certificate(     
+                    host,              
                     issued_domain,            
                     issued_to,                
                     issued_by,                
@@ -109,11 +113,12 @@ def batch_insert_data(conn, data):
                     validity_days,            
                     certificate_sn,           
                     certificate_version,      
-                    certificate_algorithm,     
+                    certificate_algorithm,    
+                    ocsp_status, 
                     expired                  
                 )
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     try:
         cursor.executemany(sql, data)
@@ -123,7 +128,3 @@ def batch_insert_data(conn, data):
         print(e)
     finally:
         cursor.close()
-
-
-if __name__ == '__main__':
-    connection = get_connection()
