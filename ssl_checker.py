@@ -139,35 +139,31 @@ class SSLChecker:
 
     def get_cert_info(self, host, cert):
         """Get all the information about cert and create a JSON file."""
-        context = {}
-
         cert_subject = cert.get_subject()
 
+        context = {}
         context['host'] = host
-        context['issued_to'] = cert_subject.CN
-        context['issued_o'] = cert_subject.O
+        context['cert_ver'] = cert.get_version()  # Version Number v1/v2/v3
+        context['cert_sn'] = str(cert.get_serial_number())  # Serial Number
+        context['cert_alg'] = cert.get_signature_algorithm().decode()  # Signature Algorithm
+        # Issuer Name C=country name;O=OrganizationName;CN=common name
         context['issuer_c'] = cert.get_issuer().countryName
         context['issuer_o'] = cert.get_issuer().organizationName
         context['issuer_ou'] = cert.get_issuer().organizationalUnitName
         context['issuer_cn'] = cert.get_issuer().commonName
-        context['cert_sn'] = str(cert.get_serial_number())
+        # Subject Name
+        context['issued_to'] = cert_subject.CN
+        context['issued_o'] = cert_subject.O
+
         context['cert_sha1'] = cert.digest('sha1').decode()
-        context['cert_alg'] = cert.get_signature_algorithm().decode()
-        context['cert_ver'] = cert.get_version()
-        context['cert_sans'] = self.get_cert_sans(cert)
+        context['cert_sans'] = self.get_cert_sans(cert)  # X509v3 Subject Alternative Name in Extensions
+
         context['cert_exp'] = cert.has_expired()
         context['cert_valid'] = False if cert.has_expired() else True
-
-        status = ocspchecker.get_ocsp_status(host)
-        if status:
-            context['ocsp_status'] = status[2].split(": ")[1]
-
-        # Valid from
+        # Valid period
         valid_from = datetime.strptime(cert.get_notBefore().decode('ascii'),
                                        '%Y%m%d%H%M%SZ')
         context['valid_from'] = valid_from.strftime('%Y-%m-%d')
-
-        # Valid till
         valid_till = datetime.strptime(cert.get_notAfter().decode('ascii'),
                                        '%Y%m%d%H%M%SZ')
         context['valid_till'] = valid_till.strftime('%Y-%m-%d')
@@ -191,6 +187,10 @@ class SSLChecker:
         # If the certificate has less than 15 days validity
         if context['valid_days_to_expire'] <= 15:
             self.total_warning += 1
+
+        status = ocspchecker.get_ocsp_status(host)
+        if status:
+            context['ocsp_status'] = status[2].split(": ")[1]
 
         return context
 
