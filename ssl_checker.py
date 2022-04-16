@@ -30,6 +30,8 @@ class Clr:
 
 
 print('ssl_analyzer_start')
+
+
 # db conn
 connection = get_connection()
 
@@ -179,7 +181,7 @@ class SSLChecker:
 
         # Valid days left
         context['valid_days_to_expire'] = (datetime.strptime(context['valid_till'],
-                                           '%Y-%m-%d') - datetime.now()).days
+                                                             '%Y-%m-%d') - datetime.now()).days
 
         if cert.has_expired():
             self.total_expired += 1
@@ -199,7 +201,8 @@ class SSLChecker:
         print('\t\tIssued to: {}'.format(context[host]['issued_o']))
         print('\t\tIssued by: {} ({})'.format(context[host]['issuer_o'], context[host]['issuer_c']))
         print('\t\tValid from: {}'.format(context[host]['valid_from']))
-        print('\t\tValid to: {} ({} days left)'.format(context[host]['valid_till'], context[host]['valid_days_to_expire']))
+        print('\t\tValid to: {} ({} days left)'.format(context[host]['valid_till'],
+                                                       context[host]['valid_days_to_expire']))
         print('\t\tValidity days: {}'.format(context[host]['validity_days']))
         print('\t\tCertificate valid: {}'.format(context[host]['cert_valid']))
         print('\t\tCertificate S/N: {}'.format(context[host]['cert_sn']))
@@ -259,11 +262,15 @@ class SSLChecker:
         for host in hosts:
             if user_args.verbose:
                 print('{}Working on host: {}{}\n'.format(Clr.YELLOW, host, Clr.RST))
-
-            host, port = self.filter_hostname(host)
-
             # Check duplication
             if host in context.keys():
+                continue
+            # check if 443 port open
+            port = 443
+            not_open = self.check_port_open(host, port)
+            if not_open:
+                # TODO: should write an item to database here
+                print("The 443 port did not open")
                 continue
 
             try:
@@ -289,33 +296,14 @@ class SSLChecker:
                 sys.exit(1)
 
         if not user_args.json_true:
-            self.border_msg(' Successful: {} | Failed: {} | Valid: {} | Warning: {} | Expired: {} | Duration: {} '.format(
-                len(hosts) - self.total_failed, self.total_failed, self.total_valid,
-                self.total_warning, self.total_expired, datetime.now() - start_time))
+            self.border_msg(
+                ' Successful: {} | Failed: {} | Valid: {} | Warning: {} | Expired: {} | Duration: {} '.format(
+                    len(hosts) - self.total_failed, self.total_failed, self.total_valid,
+                    self.total_warning, self.total_expired, datetime.now() - start_time))
             if user_args.summary_true:
                 # Exit the script just
                 return
-
-        # CSV export if -c/--csv is specified
-        if user_args.csv_enabled:
-            self.export_csv(context, user_args.csv_enabled, user_args)
-
-        # HTML export if -x/--html is specified
-        if user_args.html_true:
-            self.export_html(context)
-
-        # While using the script as a module
-        if __name__ != '__main__':
-            return json.dumps(context)
-
-        # Enable JSON output if -j/--json argument specified
-        if user_args.json_true:
-            print(json.dumps(context))
-
-        if user_args.json_save_true:
-            for host in context.keys():
-                with open(host + '.json', 'w', encoding='UTF-8') as fp:
-                    fp.write(json.dumps(context[host]))
+        self.export_csv(user_args, context)
 
     def export_csv(self, context, filename, user_args):
         """Export all context results to CSV file."""
@@ -337,6 +325,10 @@ class SSLChecker:
             html_file.write(html)
 
         return
+
+    def check_port_open(self, host, port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            return sock.connect_ex((host, port))
 
     def filter_hostname(self, host):
         """Remove unused characters and split by address and port."""
@@ -411,6 +403,28 @@ class SSLChecker:
                 sys.exit(0)
 
         return args
+
+    def export_res(self, user_args, context):
+        # CSV export if -c/--csv is specified
+        if user_args.csv_enabled:
+            self.export_csv(context, user_args.csv_enabled, user_args)
+
+        # HTML export if -x/--html is specified
+        if user_args.html_true:
+            self.export_html(context)
+
+        # While using the script as a module
+        if __name__ != '__main__':
+            return json.dumps(context)
+
+        # Enable JSON output if -j/--json argument specified
+        if user_args.json_true:
+            print(json.dumps(context))
+
+        if user_args.json_save_true:
+            for host in context.keys():
+                with open(host + '.json', 'w', encoding='UTF-8') as fp:
+                    fp.write(json.dumps(context[host]))
 
 
 def csv_reader(f_name):
