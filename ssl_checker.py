@@ -2,12 +2,14 @@
 import socket
 import sys
 import json
-
+import pytest
 from argparse import ArgumentParser, SUPPRESS
 from datetime import datetime
 from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
+
+import OpenSSL.crypto
 from ocspchecker import ocspchecker
 
 from db import get_connection, insert_data, batch_insert_data
@@ -64,6 +66,18 @@ class SSLChecker:
         oscon.set_connect_state()
         oscon.do_handshake()
         cert = oscon.get_peer_certificate()
+
+        # cert_chain = oscon.get_peer_cert_chain()
+        # store = OpenSSL.crypto.X509Store()
+        # print(f'The length of the chain {len(cert_chain)}')
+        # for each_cert in cert_chain:
+        #     store.add_cert(each_cert)
+        #     print(each_cert.get_subject())
+        # ctx = OpenSSL.crypto.X509StoreContext(store,cert_chain[0])
+        # with pytest.raises(OpenSSL.crypto.X509StoreContextError) as err:
+        #     ctx.verify_certificate()
+        # print(err.value)
+
         sock.close()
         if user_args.verbose:
             print('{}Closing socket{}\n'.format(Clr.YELLOW, Clr.RST))
@@ -139,8 +153,6 @@ class SSLChecker:
 
     def get_cert_info(self, host, cert):
         """Get all the information about cert and create a JSON file."""
-        cert_subject = cert.get_subject()
-
         context = {}
         context['host'] = host
         context['cert_ver'] = cert.get_version()  # Version Number v1/v2/v3
@@ -152,6 +164,7 @@ class SSLChecker:
         context['issuer_ou'] = cert.get_issuer().organizationalUnitName
         context['issuer_cn'] = cert.get_issuer().commonName
         # Subject Name
+        cert_subject = cert.get_subject()
         context['issued_to'] = cert_subject.CN
         context['issued_o'] = cert_subject.O
 
@@ -303,7 +316,7 @@ class SSLChecker:
             if user_args.summary_true:
                 # Exit the script just
                 return
-        self.export_csv(user_args, context)
+        self.export_res(user_args, context)
 
     def export_csv(self, context, filename, user_args):
         """Export all context results to CSV file."""
