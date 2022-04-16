@@ -422,8 +422,10 @@ def csv_reader(f_name):
     import csv
     print('start to read csv.')
     ret = []
+    sites_count = 100000
     f = csv.reader(open(f_name, 'r'))
-    for line in f:
+    for i in range(sites_count):
+        line = next(f)
         ret.append(line[1])
     return ret
 
