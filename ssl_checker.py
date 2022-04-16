@@ -267,8 +267,8 @@ class SSLChecker:
                 continue
             # check if 443 port open
             port = 443
-            not_open = self.check_port_open(host, port)
-            if not_open:
+            is_open = self.check_port_open(host, port)
+            if not is_open:
                 # TODO: should write an item to database here
                 print("The 443 port did not open")
                 continue
@@ -327,8 +327,11 @@ class SSLChecker:
         return
 
     def check_port_open(self, host, port):
+        is_open = True
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            return sock.connect_ex((host, port))
+            if sock.connect_ex((host, port)) != 0:
+                is_open = False
+        return is_open
 
     def filter_hostname(self, host):
         """Remove unused characters and split by address and port."""
