@@ -8,19 +8,18 @@ from datetime import datetime
 from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
-
-import OpenSSL.crypto
 from ocspchecker import ocspchecker
 
 from db import get_connection, insert_data, batch_insert_data
 
 try:
-    from OpenSSL import SSL
+    from OpenSSL import SSL,crypto
     from json2html import *
 except ImportError:
     print('Please install required modules: pip install -r requirements.txt')
     sys.exit(1)
 
+cafile = "./cacert.pem"
 
 class Clr:
     """Text colors."""
@@ -35,8 +34,17 @@ print('ssl_analyzer_start')
 
 
 # db conn
-connection = get_connection()
+db_connection = get_connection()
 
+class VerifyCallback:
+    def callback(self, connection, cert, errno, depth, result):
+        self.connection = connection
+        self.errno = errno
+        self.depth = depth
+        self.result = result
+        return result
+
+verify = VerifyCallback()
 
 class SSLChecker:
     total_valid = 0
@@ -59,24 +67,16 @@ class SSLChecker:
             print('{}Connecting to socket{}\n'.format(Clr.YELLOW, Clr.RST))
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        osobj = SSL.Context(PROTOCOL_TLSv1)
-        sock.connect((host, int(port)))
-        oscon = SSL.Connection(osobj, sock)
-        oscon.set_tlsext_host_name(host.encode())
-        oscon.set_connect_state()
-        oscon.do_handshake()
-        cert = oscon.get_peer_certificate()
+        ssl_context = SSL.Context(PROTOCOL_TLSv1)
+        ssl_context.load_verify_locations(cafile)
+        ssl_context.set_verify(SSL.VERIFY_PEER,verify.callback)
 
-        # cert_chain = oscon.get_peer_cert_chain()
-        # store = OpenSSL.crypto.X509Store()
-        # print(f'The length of the chain {len(cert_chain)}')
-        # for each_cert in cert_chain:
-        #     store.add_cert(each_cert)
-        #     print(each_cert.get_subject())
-        # ctx = OpenSSL.crypto.X509StoreContext(store,cert_chain[0])
-        # with pytest.raises(OpenSSL.crypto.X509StoreContextError) as err:
-        #     ctx.verify_certificate()
-        # print(err.value)
+        sock.connect((host, int(port)))
+        ssl_connection = SSL.Connection(ssl_context, sock)
+        ssl_connection.set_tlsext_host_name(host.encode())
+        ssl_connection.set_connect_state()
+        ssl_connection.do_handshake()
+        cert = ssl_connection.get_peer_certificate()
 
         sock.close()
         if user_args.verbose:
@@ -159,10 +159,11 @@ class SSLChecker:
         context['cert_sn'] = str(cert.get_serial_number())  # Serial Number
         context['cert_alg'] = cert.get_signature_algorithm().decode()  # Signature Algorithm
         # Issuer Name C=country name;O=OrganizationName;CN=common name
-        context['issuer_c'] = cert.get_issuer().countryName
-        context['issuer_o'] = cert.get_issuer().organizationName
-        context['issuer_ou'] = cert.get_issuer().organizationalUnitName
-        context['issuer_cn'] = cert.get_issuer().commonName
+        cert_issuer = cert.get_issuer()
+        context['issuer_c'] = cert_issuer.countryName
+        context['issuer_o'] = cert_issuer.organizationName
+        context['issuer_ou'] = cert_issuer.organizationalUnitName
+        context['issuer_cn'] = cert_issuer.commonName
         # Subject Name
         cert_subject = cert.get_subject()
         context['issued_to'] = cert_subject.CN
@@ -291,11 +292,13 @@ class SSLChecker:
                 context[host] = self.get_cert_info(host, cert)
                 context[host]['tcp_port'] = int(port)
 
+                # use ssllabs api to analysis ssl
                 # context = self.analyze_ssl(host, context, user_args)
                 print(host)
                 self.print_status(host, context)
+                # insert data to database
                 insert_list = self.get_status_list(host, context)
-                insert_data(connection, insert_list)
+                insert_data(db_connection, insert_list)
             except SSL.SysCallError:
                 if not user_args.json_true:
                     print('\t{}[-]{} {:<20s} Failed: Misconfigured SSL/TLS\n'.format(Clr.RED, Clr.RST, host))
