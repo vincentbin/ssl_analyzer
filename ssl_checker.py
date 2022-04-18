@@ -211,37 +211,11 @@ class SSLChecker:
 
         return context
 
-    def print_status(self, host, context, analyze=False):
+    def print_status(self, context, host):
         """Print all the usefull info about host."""
         print('\t{}[+]{} {}\n\t{}'.format(Clr.GREEN, Clr.RST, host, '-' * (len(host) + 5)))
-        print('\t\tIssued domain: {}'.format(context[host]['issued_to']))
-        print('\t\tIssued to: {}'.format(context[host]['issued_o']))
-        print('\t\tIssued by: {} ({})'.format(context[host]['issuer_o'], context[host]['issuer_c']))
-        print('\t\tValid from: {}'.format(context[host]['valid_from']))
-        print('\t\tValid to: {} ({} days left)'.format(context[host]['valid_till'],
-                                                       context[host]['valid_days_to_expire']))
-        print('\t\tValidity days: {}'.format(context[host]['validity_days']))
-        print('\t\tCertificate valid: {}'.format(context[host]['cert_valid']))
-        print('\t\tCertificate S/N: {}'.format(context[host]['cert_sn']))
-        print('\t\tCertificate SHA1 FP: {}'.format(context[host]['cert_sha1']))
-        print('\t\tCertificate version: {}'.format(context[host]['cert_ver']))
-        print('\t\tCertificate algorithm: {}'.format(context[host]['cert_alg']))
-
-        if analyze:
-            print('\t\tCertificate grade: {}'.format(context[host]['grade']))
-            print('\t\tPoodle vulnerability: {}'.format(context[host]['poodle_vuln']))
-            print('\t\tHeartbleed vulnerability: {}'.format(context[host]['heartbleed_vuln']))
-            print('\t\tHeartbeat vulnerability: {}'.format(context[host]['heartbeat_vuln']))
-            print('\t\tFreak vulnerability: {}'.format(context[host]['freak_vuln']))
-            print('\t\tLogjam vulnerability: {}'.format(context[host]['logjam_vuln']))
-            print('\t\tDrown vulnerability: {}'.format(context[host]['drownVulnerable']))
-
-        print('\t\tExpired: {}'.format(context[host]['cert_exp']))
-        print('\t\tCertificate SAN\'s: ')
-
-        for san in context[host]['cert_sans'].split(';'):
-            print('\t\t \\_ {}'.format(san.strip()))
-
+        for key, value in context[host].items():
+            print('\t\t', key, ': ', value)
         print('\n')
 
     def get_status_list(self, host, context):
@@ -266,7 +240,21 @@ class SSLChecker:
                          context[host]['validity_days'],
                          context[host]['days_left'],
                          context[host]['ocsp_status']]
-            ret.extend(cert_list)
+        else:
+            # todo 暂时
+            cert_list = [None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None,
+                         None]
+        ret.extend(cert_list)
         return ret
 
     def show_result(self, user_args):
@@ -320,10 +308,8 @@ class SSLChecker:
 
             sub_context['errno'] = verify.errno
             context[host] = sub_context
-            for key, value in context[host].items():
-                print('\t\t', key, ': ', value)
-            print('\n')
-            # self.print_status(host, context)
+            self.print_status(context, host)
+
             # insert data to database
             insert_list = self.get_status_list(host, context)
             insert_data(db_connection, insert_list)

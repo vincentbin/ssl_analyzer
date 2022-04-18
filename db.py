@@ -69,10 +69,10 @@ def insert_data(conn, data):
                 certificate(   
                     host,               
                     error_number,            
-                    cert_version,
+                    certificate_version,
                     certificate_algorithm,
                     issuer_country,
-                    issuer_organization,
+                    issued_organization,
                     public_key_type,
                     public_key_bits,
                     expired,                             
@@ -80,7 +80,7 @@ def insert_data(conn, data):
                     valid_to,              
                     validity_days,
                     valid_days_left,            
-                    ocsp_status,                   
+                    ocsp_status                  
                 )
             VALUES
                 (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
