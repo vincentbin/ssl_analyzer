@@ -13,13 +13,14 @@ from ocspchecker import ocspchecker
 from db import get_connection, insert_data, batch_insert_data
 
 try:
-    from OpenSSL import SSL,crypto
+    from OpenSSL import SSL, crypto
     from json2html import *
 except ImportError:
     print('Please install required modules: pip install -r requirements.txt')
     sys.exit(1)
 
 cafile = "./cacert.pem"
+
 
 class Clr:
     """Text colors."""
@@ -32,9 +33,9 @@ class Clr:
 
 print('ssl_analyzer_start')
 
-
 # db conn
 db_connection = get_connection()
+
 
 class VerifyCallback:
     def callback(self, connection, cert, errno, depth, result):
@@ -44,7 +45,9 @@ class VerifyCallback:
         self.result = result
         return result
 
+
 verify = VerifyCallback()
+
 
 class SSLChecker:
     total_valid = 0
@@ -69,7 +72,7 @@ class SSLChecker:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssl_context = SSL.Context(PROTOCOL_TLSv1)
         ssl_context.load_verify_locations(cafile)
-        ssl_context.set_verify(SSL.VERIFY_PEER,verify.callback)
+        ssl_context.set_verify(SSL.VERIFY_PEER, verify.callback)
 
         sock.connect((host, int(port)))
         ssl_connection = SSL.Connection(ssl_context, sock)
@@ -282,20 +285,23 @@ class SSLChecker:
             # Check duplication
             if host in context.keys():
                 continue
+            sub_context = {}
+            sub_context['host'] = host
+            sub_context['errno'] = 0
             # check if 443 port open
             port = 443
             is_open = self.check_port_open(host, port)
             if not is_open:
                 # TODO: should write an item to database here
+                sub_context['errno'] = -1  # it means the host did not open 443 port
+                context[host] = sub_context
+                insert_data(db_connection, self.get_status_list(host, context))
                 print("The 443 port did not open")
                 continue
 
-            sub_context = {}
-            sub_context['host'] = host
-            sub_context['errno'] = 0
             try:
                 cert = self.get_cert(host, port, user_args)
-                self.get_cert_info(host,sub_context, cert)
+                self.get_cert_info(host, sub_context, cert)
                 context[host]['tcp_port'] = int(port)
                 # use ssllabs api to analysis ssl
                 # context = self.analyze_ssl(host, context, user_args)
