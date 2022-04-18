@@ -20,6 +20,10 @@ except ImportError:
 
 cafile = "./cacert.pem"
 
+table_keys = ['host','errno','cert_ver','cert_alg','issuer_c','issuer_o','pub_key_type',
+              'pub_key_bits','cert_exp','valid_from','valid_till','validity_days','days_left','ocsp_status']
+table_value = ['null',0,'null','null','null','null','null',
+               'null','null','null','null','null','null','null']
 
 class Clr:
     """Text colors."""
@@ -225,36 +229,9 @@ class SSLChecker:
         :param context: raw res
         :return: list
         """
-        ret = [context[host]['host'],
-               context[host]['errno']]
-        if context[host]['errno'] == 0:
-            cert_list = [context[host]['cert_ver'],
-                         context[host]['cert_alg'],
-                         context[host]['issuer_c'],
-                         context[host]['issuer_o'],
-                         context[host]['pub_key_type'],
-                         context[host]['pub_key_bits'],
-                         context[host]['cert_exp'],
-                         context[host]['valid_from'],
-                         context[host]['valid_till'],
-                         context[host]['validity_days'],
-                         context[host]['days_left'],
-                         context[host]['ocsp_status']]
-        else:
-            # todo 暂时
-            cert_list = [None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None,
-                         None]
-        ret.extend(cert_list)
+        ret = []
+        for key in table_keys:
+            ret.append(context[host][key])
         return ret
 
     def show_result(self, user_args):
@@ -272,9 +249,8 @@ class SSLChecker:
             # Check duplication
             if host in context.keys():
                 continue
-            sub_context = {}
+            sub_context = dict(zip(table_keys,table_value))
             sub_context['host'] = host
-            sub_context['errno'] = 0
             # check if 443 port open
             port = 443
             is_open = self.check_port_open(host, port)
@@ -296,12 +272,13 @@ class SSLChecker:
                 if not user_args.json_true:
                     print('\t{}[-]{} {:<20s} Failed: Misconfigured SSL/TLS\n'.format(Clr.RED, Clr.RST, host))
                     self.total_failed += 1
-                    pass
+                pass
             except Exception as error:
                 if not user_args.json_true:
                     print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
                     self.total_failed += 1
-                    pass
+                print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
+                pass
             except KeyboardInterrupt:
                 print('{}Canceling script...{}\n'.format(Clr.YELLOW, Clr.RST))
                 sys.exit(1)
@@ -348,8 +325,12 @@ class SSLChecker:
     def check_port_open(self, host, port):
         is_open = True
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            if sock.connect_ex((host, port)) != 0:
-                is_open = False
+            try:
+                conn = sock.connect_ex((host, port))
+                if(conn != 0):
+                    is_open = False
+            except Exception as err:
+                return is_open
         return is_open
 
     def filter_hostname(self, host):
