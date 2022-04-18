@@ -10,7 +10,7 @@ create table certificate
     issued_organization   varchar(256) null,
     public_key_type       varchar(256) null,
     public_key_bits       varchar(256) null,
-    expired               tinyint(1)   null
+    expired               tinyint(1)   null,
     valid_from            varchar(256) null,
     valid_to              varchar(256) null,
     validity_days         int          null,

@@ -2,7 +2,6 @@
 import socket
 import sys
 import json
-import pytest
 from argparse import ArgumentParser, SUPPRESS
 from datetime import datetime
 from ssl import PROTOCOL_TLSv1
@@ -10,7 +9,7 @@ from time import sleep
 from csv import DictWriter
 from ocspchecker import ocspchecker
 
-from db import get_connection, insert_data, batch_insert_data
+from db import get_connection, insert_data
 
 try:
     from OpenSSL import SSL, crypto
