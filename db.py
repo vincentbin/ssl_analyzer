@@ -68,20 +68,22 @@ def insert_data(conn, data):
             INSERT INTO
                 certificate(   
                     host,               
-                    issued_domain,            
-                    issued_to,                
-                    issued_by,                
+                    error_number,            
+                    cert_version,
+                    certificate_algorithm,
+                    issuer_country,
+                    issuer_organization,
+                    public_key_type,
+                    public_key_bits,
+                    expired,                             
                     valid_from,               
                     valid_to,              
-                    validity_days,            
-                    certificate_sn,           
-                    certificate_version,      
-                    certificate_algorithm,     
-                    ocsp_status,
-                    expired                  
+                    validity_days,
+                    valid_days_left,            
+                    ocsp_status,                   
                 )
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     try:
         cursor.execute(sql, data)

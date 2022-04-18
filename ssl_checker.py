@@ -151,10 +151,10 @@ class SSLChecker:
         san = san.replace(',', ';')
         return san
 
-    def get_cert_info(self, host, cert):
+    def get_cert_info(self, host, context, cert):
         """Get all the information about cert and create a JSON file."""
-        context = {}
-        context['host'] = host
+        # context = {}
+        # context['host'] = host
         context['cert_ver'] = cert.get_version()  # Version Number v1/v2/v3
         context['cert_sn'] = str(cert.get_serial_number())  # Serial Number
         context['cert_alg'] = cert.get_signature_algorithm().decode()  # Signature Algorithm
@@ -170,7 +170,10 @@ class SSLChecker:
         context['issued_o'] = cert_subject.O
 
         context['cert_sha1'] = cert.digest('sha1').decode()
-        context['cert_sans'] = self.get_cert_sans(cert)  # X509v3 Subject Alternative Name in Extensions
+        # context['cert_sans'] = self.get_cert_sans(cert)  # X509v3 Subject Alternative Name in Extensions
+        pub = cert.get_pubkey()
+        context['pub_key_type'] = pub.type()
+        context['pub_key_bits'] = pub.bits()
 
         context['cert_exp'] = cert.has_expired()
         context['cert_valid'] = False if cert.has_expired() else True
@@ -192,12 +195,10 @@ class SSLChecker:
         # Valid days left
         context['valid_days_to_expire'] = (datetime.strptime(context['valid_till'],
                                                              '%Y-%m-%d') - datetime.now()).days
-
         if cert.has_expired():
             self.total_expired += 1
         else:
             self.total_valid += 1
-
         # If the certificate has less than 15 days validity
         if context['valid_days_to_expire'] <= 15:
             self.total_warning += 1
@@ -248,20 +249,22 @@ class SSLChecker:
         :param context: raw res
         :return: list
         """
-        ret = [
-            context[host]['host'],
-            context[host]['issued_to'],
-            context[host]['issued_o'],
-            '{} ({})'.format(context[host]['issuer_o'], context[host]['issuer_c']),
-            context[host]['valid_from'],
-            '{}({} days left)'.format(context[host]['valid_till'], context[host]['valid_days_to_expire']),
-            context[host]['validity_days'],
-            context[host]['cert_sn'],
-            context[host]['cert_ver'],
-            context[host]['cert_alg'],
-            context[host]['ocsp_status'],
-            context[host]['cert_exp']
-        ]
+        ret = [context[host]['host'],
+               context[host]['errno']]
+        if context[host]['errno'] == 0:
+            cert_list = [context[host]['cert_ver'],
+                         context[host]['cert_alg'],
+                         context[host]['issuer_c'],
+                         context[host]['issuer_o'],
+                         context[host]['pub_key_type'],
+                         context[host]['pub_key_bits'],
+                         context[host]['cert_exp'],
+                         context[host]['valid_from'],
+                         context[host]['valid_till'],
+                         context[host]['validity_days'],
+                         context[host]['days_left'],
+                         context[host]['ocsp_status']]
+            ret.extend(cert_list)
         return ret
 
     def show_result(self, user_args):
@@ -287,29 +290,38 @@ class SSLChecker:
                 print("The 443 port did not open")
                 continue
 
+            sub_context = {}
+            sub_context['host'] = host
+            sub_context['errno'] = 0
             try:
                 cert = self.get_cert(host, port, user_args)
-                context[host] = self.get_cert_info(host, cert)
+                self.get_cert_info(host,sub_context, cert)
                 context[host]['tcp_port'] = int(port)
-
                 # use ssllabs api to analysis ssl
                 # context = self.analyze_ssl(host, context, user_args)
-                print(host)
-                self.print_status(host, context)
-                # insert data to database
-                insert_list = self.get_status_list(host, context)
-                insert_data(db_connection, insert_list)
             except SSL.SysCallError:
                 if not user_args.json_true:
                     print('\t{}[-]{} {:<20s} Failed: Misconfigured SSL/TLS\n'.format(Clr.RED, Clr.RST, host))
                     self.total_failed += 1
+                    pass
             except Exception as error:
                 if not user_args.json_true:
                     print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
                     self.total_failed += 1
+                    pass
             except KeyboardInterrupt:
                 print('{}Canceling script...{}\n'.format(Clr.YELLOW, Clr.RST))
                 sys.exit(1)
+
+            sub_context['errno'] = verify.errno
+            context[host] = sub_context
+            for key, value in context[host].items():
+                print('\t\t', key, ': ', value)
+            print('\n')
+            # self.print_status(host, context)
+            # insert data to database
+            insert_list = self.get_status_list(host, context)
+            insert_data(db_connection, insert_list)
 
         if not user_args.json_true:
             self.border_msg(
@@ -468,7 +480,7 @@ if __name__ == '__main__':
     SSLChecker = SSLChecker()
     args = {
         'hosts': hosts
-        # 'hosts': ['baidu.com']
+        # 'hosts': ['expired.badssl.com','revoked.badssl.com','google.com']
     }
 
     SSLChecker.show_result(SSLChecker.get_args(json_args=args))
