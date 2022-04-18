@@ -22,8 +22,6 @@ cafile = "./cacert.pem"
 
 table_keys = ['host','errno','cert_ver','cert_alg','issuer_c','issuer_o','pub_key_type',
               'pub_key_bits','cert_exp','valid_from','valid_till','validity_days','days_left','ocsp_status']
-table_value = ['null',0,'null','null','null','null','null',
-               'null','null','null','null','null','null','null']
 
 class Clr:
     """Text colors."""
@@ -249,8 +247,10 @@ class SSLChecker:
             # Check duplication
             if host in context.keys():
                 continue
-            sub_context = dict(zip(table_keys,table_value))
+
+            sub_context = dict.fromkeys(table_keys,'null')
             sub_context['host'] = host
+            sub_context['errno'] = 0
             # check if 443 port open
             port = 443
             is_open = self.check_port_open(host, port)
@@ -265,7 +265,7 @@ class SSLChecker:
             try:
                 cert = self.get_cert(host, port, user_args)
                 self.get_cert_info(host, sub_context, cert)
-                context[host]['tcp_port'] = int(port)
+                sub_context['tcp_port'] = int(port)
                 # use ssllabs api to analysis ssl
                 # context = self.analyze_ssl(host, context, user_args)
             except SSL.SysCallError:
