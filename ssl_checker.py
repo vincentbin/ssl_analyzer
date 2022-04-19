@@ -8,7 +8,7 @@ from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
 from ocspchecker import ocspchecker
-
+from crl_check import check_crl
 from db import get_connection, insert_data
 
 try:
@@ -20,8 +20,9 @@ except ImportError:
 
 cafile = "./cacert.pem"
 
-table_keys = ['host','errno','cert_ver','cert_alg','issuer_c','issuer_o','pub_key_type',
-              'pub_key_bits','cert_exp','valid_from','valid_till','validity_days','days_left','ocsp_status']
+table_keys = ['host', 'errno', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o', 'pub_key_type',
+              'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days', 'days_left', 'ocsp_status']
+
 
 class Clr:
     """Text colors."""
@@ -211,6 +212,8 @@ class SSLChecker:
         if status:
             context['ocsp_status'] = status[2].split(": ")[1]
 
+        # check_crl(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+
         return context
 
     def print_status(self, context, host):
@@ -248,7 +251,7 @@ class SSLChecker:
             if host in context.keys():
                 continue
 
-            sub_context = dict.fromkeys(table_keys,'null')
+            sub_context = dict.fromkeys(table_keys, 'null')
             sub_context['host'] = host
             sub_context['errno'] = 0
             # check if 443 port open
@@ -327,7 +330,7 @@ class SSLChecker:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 conn = sock.connect_ex((host, port))
-                if(conn != 0):
+                if (conn != 0):
                     is_open = False
             except Exception as err:
                 return is_open
