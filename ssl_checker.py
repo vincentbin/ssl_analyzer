@@ -8,8 +8,8 @@ from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
 from ocspchecker import ocspchecker
-from crl_check import check_crl,CRLStatus
-from db import get_connection, insert_data
+from crl_check import check_crl, CRLStatus
+from db import get_connection, insert_data, close_connection
 
 try:
     from OpenSSL import SSL, crypto
@@ -17,11 +17,6 @@ try:
 except ImportError:
     print('Please install required modules: pip install -r requirements.txt')
     sys.exit(1)
-
-cafile = "./cacert.pem"
-
-table_keys = ['host', 'errno', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o', 'pub_key_type',
-              'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days', 'days_left', 'ocsp_status']
 
 
 class Clr:
@@ -35,9 +30,6 @@ class Clr:
 
 print('ssl_analyzer_start')
 
-# db conn
-db_connection = get_connection()
-
 
 class VerifyCallback:
     def callback(self, connection, cert, errno, depth, result):
@@ -48,14 +40,20 @@ class VerifyCallback:
         return result
 
 
-verify = VerifyCallback()
-
-
 class SSLChecker:
     total_valid = 0
     total_expired = 0
     total_failed = 0
     total_warning = 0
+
+    def __init__(self):
+        self.cafile = "./cacert.pem"
+        self.verify = VerifyCallback()
+        self.table_keys = ['host', 'errno', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o', 'pub_key_type',
+                           'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days', 'days_left',
+                           'ocsp_status']
+        # db conn
+        self.db_connection = get_connection()
 
     def get_cert(self, host, port, user_args):
         """Connection to the host."""
@@ -73,8 +71,8 @@ class SSLChecker:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssl_context = SSL.Context(PROTOCOL_TLSv1)
-        ssl_context.load_verify_locations(cafile)
-        ssl_context.set_verify(SSL.VERIFY_PEER, verify.callback)
+        ssl_context.load_verify_locations(self.cafile)
+        ssl_context.set_verify(SSL.VERIFY_PEER, self.verify.callback)
 
         sock.connect((host, int(port)))
         ssl_connection = SSL.Connection(ssl_context, sock)
@@ -235,7 +233,7 @@ class SSLChecker:
         :return: list
         """
         ret = []
-        for key in table_keys:
+        for key in self.table_keys:
             ret.append(context[host][key])
         return ret
 
@@ -255,7 +253,7 @@ class SSLChecker:
             if host in context.keys():
                 continue
 
-            sub_context = dict.fromkeys(table_keys, 'null')
+            sub_context = dict.fromkeys(self.table_keys, 'null')
             sub_context['host'] = host
             sub_context['errno'] = 0
             # check if 443 port open
@@ -265,7 +263,7 @@ class SSLChecker:
                 # TODO: should write an item to database here
                 sub_context['errno'] = -1  # it means the host did not open 443 port
                 context[host] = sub_context
-                insert_data(db_connection, self.get_status_list(host, context))
+                insert_data(self.db_connection, self.get_status_list(host, context))
                 print("The 443 port did not open")
                 continue
 
@@ -290,13 +288,13 @@ class SSLChecker:
                 print('{}Canceling script...{}\n'.format(Clr.YELLOW, Clr.RST))
                 sys.exit(1)
 
-            sub_context['errno'] = verify.errno
+            sub_context['errno'] = self.verify.errno
             context[host] = sub_context
             self.print_status(context, host)
 
             # insert data to database
             insert_list = self.get_status_list(host, context)
-            insert_data(db_connection, insert_list)
+            insert_data(self.db_connection, insert_list)
 
         if not user_args.json_true:
             self.border_msg(
@@ -463,3 +461,4 @@ if __name__ == '__main__':
     }
 
     SSLChecker.show_result(SSLChecker.get_args(json_args=args))
+    close_connection(SSLChecker.db_connection)
