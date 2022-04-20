@@ -8,7 +8,7 @@ from ssl import PROTOCOL_TLSv1
 from time import sleep
 from csv import DictWriter
 from ocspchecker import ocspchecker
-from crl_check import check_crl
+from crl_check import check_crl,CRLStatus
 from db import get_connection, insert_data
 
 try:
@@ -212,7 +212,11 @@ class SSLChecker:
         if status:
             context['ocsp_status'] = status[2].split(": ")[1]
 
-        # check_crl(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        # since crl check is time-consuming, we just check it when ocsp fail or ocsp get revoked status
+        crl_status = check_crl(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        context['crl_status'] = str(crl_status[0])
+        if crl_status[1] is not CRLStatus.GOOD:
+            context['crl_reason'] = crl_status[1]
 
         return context
 
