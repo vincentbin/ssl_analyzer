@@ -49,9 +49,9 @@ class SSLChecker:
     def __init__(self):
         self.cafile = "./cacert.pem"
         self.verify = VerifyCallback()
-        self.table_keys = ['host', 'errno', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o', 'pub_key_type',
-                           'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days', 'days_left',
-                           'ocsp_status']
+        self.table_keys = ['host', 'open443', 'error', 'ssl_error', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o',
+                           'pub_key_type', 'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days',
+                           'days_left', 'ocsp_status', 'crl_status', 'crl_reason']
         # db conn
         self.db_connection = get_connection()
 
@@ -213,7 +213,7 @@ class SSLChecker:
         # since crl check is time-consuming, we just check it when ocsp fail or ocsp get revoked status
         crl_status = check_crl(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         context['crl_status'] = str(crl_status[0])
-        if crl_status[1] is not CRLStatus.GOOD:
+        if crl_status[0] is not CRLStatus.GOOD:
             context['crl_reason'] = crl_status[1]
 
         return context
@@ -250,45 +250,34 @@ class SSLChecker:
             if user_args.verbose:
                 print('{}Working on host: {}{}\n'.format(Clr.YELLOW, host, Clr.RST))
             # Check duplication
-            if host in context.keys():
-                continue
+            # if host in context.keys():
+            #     continue
 
             sub_context = dict.fromkeys(self.table_keys, 'null')
             sub_context['host'] = host
-            sub_context['errno'] = 0
-            # check if 443 port open
-            port = 443
-            is_open = self.check_port_open(host, port)
-            if not is_open:
-                # TODO: should write an item to database here
-                sub_context['errno'] = -1  # it means the host did not open 443 port
-                context[host] = sub_context
-                insert_data(self.db_connection, self.get_status_list(host, context))
-                print("The 443 port did not open")
-                continue
-
             try:
-                cert = self.get_cert(host, port, user_args)
-                self.get_cert_info(host, sub_context, cert)
-                sub_context['tcp_port'] = int(port)
-                # use ssllabs api to analysis ssl
-                # context = self.analyze_ssl(host, context, user_args)
+                # check if 443 port open
+                port = 443
+                is_open = self.check_port_open(host, port)
+                if not is_open:
+                    sub_context['open443'] = False  # it means the host did not open 443 port
+                else:
+                    sub_context['open443'] = True
+                    cert = self.get_cert(host, port, user_args)
+                    self.get_cert_info(host, sub_context, cert)
+                    # sub_context['tcp_port'] = int(port)
+                    # use ssllabs api to analysis ssl
+                    # context = self.analyze_ssl(host, context, user_args)
             except SSL.SysCallError:
-                if not user_args.json_true:
-                    print('\t{}[-]{} {:<20s} Failed: Misconfigured SSL/TLS\n'.format(Clr.RED, Clr.RST, host))
-                    self.total_failed += 1
-                pass
+                sub_context['error'] = 'Failed: Misconfiguration SSL/TLS'
             except Exception as error:
-                if not user_args.json_true:
-                    print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
-                    self.total_failed += 1
+                sub_context['error'] = str(error)
                 print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
-                pass
             except KeyboardInterrupt:
                 print('{}Canceling script...{}\n'.format(Clr.YELLOW, Clr.RST))
                 sys.exit(1)
 
-            sub_context['errno'] = self.verify.errno
+            sub_context['ssl_error'] = self.verify.errno
             context[host] = sub_context
             self.print_status(context, host)
 
@@ -335,7 +324,7 @@ class SSLChecker:
                 if (conn != 0):
                     is_open = False
             except Exception as err:
-                return is_open
+                raise err
         return is_open
 
     def filter_hostname(self, host):

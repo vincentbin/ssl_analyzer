@@ -3,7 +3,9 @@ create table certificate
     id                    int auto_increment
         primary key,
     host                  varchar(256) not null,
-    error_number          varchar(256) not null,
+    open443               varchar(256) null,
+    error                 varchar(256) null,
+    ssl_error             varchar(256) null,
     certificate_version   varchar(10)  null,
     certificate_algorithm varchar(256) null,
     issuer_country        varchar(256) null,
@@ -15,6 +17,8 @@ create table certificate
     valid_to              varchar(256) null,
     validity_days         int          null,
     valid_days_left       varchar(256) null,
-    ocsp_status           varchar(256) null
+    ocsp_status           varchar(256) null,
+    clr_status            varchar(256) null,
+    crl_reason            varchar(256) null
 ) default character set utf8 collate utf8_general_ci;
 
