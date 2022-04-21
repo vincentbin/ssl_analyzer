@@ -32,13 +32,21 @@ def check_crl(cert_pem):
 
                 crl = _get_crl_from_url(crl_url)
 
-                r = crl.get_revoked_certificate_by_serial_number(
+                rev = crl.get_revoked_certificate_by_serial_number(
                     cert.serial_number,
                 )
-                if r is not None:
+                if rev is not None:
                     result.append(CRLStatus.REVOKED)
-                    err = f"Certificate with serial: {cert.serial_number} " \
-                          f"is revoked since: {r.revocation_date}"
+                    err = f"revoked since {rev.revocation_date}"
+                    try:
+                        r = rev.extensions.get_extension_for_class(x509.CRLReason)
+                    except x509.ExtensionNotFound:
+                        # Not all revoked certs have a reason extension.
+                        pass
+                    else:
+                        err += r.value.reason
+                    # err = f"Certificate with serial: {cert.serial_number} " \
+                    #       f"is revoked since: {rev.revocation_date}"
                     result.append(err)
                     break
         result.append(CRLStatus.GOOD)
