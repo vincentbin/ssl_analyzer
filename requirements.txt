@@ -5,3 +5,4 @@ pyOpenSSL==22.0.0
 wincertstore==0.2
 pymysql==1.0.2
 ocsp-checker==1.9.9
+requests==2.27.1
