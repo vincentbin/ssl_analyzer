@@ -1,4 +1,3 @@
-import enum
 import requests
 from cryptography import x509
 from cryptography.x509.extensions import ExtensionNotFound
@@ -9,10 +8,10 @@ class CRL_ERROR(Exception):
     pass
 
 
-class CRLStatus(enum.Enum):
-    GOOD = 0
-    REVOKED = 1
-    FAILED = 2
+class CRLStatus():
+    GOOD = 'GOOD'
+    REVOKED = 'REVOKED'
+    FAILED = 'FAILED'
 
 
 def check_crl(cert_pem):
