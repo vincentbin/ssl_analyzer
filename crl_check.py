@@ -49,9 +49,9 @@ def check_crl(cert_pem):
                     result.append(err)
                     break
         result.append(CRLStatus.GOOD)
-    except ExtensionNotFound as e:
+    except ExtensionNotFound:
         result.append(CRLStatus.FAILED)
-        result.append("CRL ERROR: {0}".format(e))
+        result.append("CRL ERROR: Not Found CRL Extension")
     except Exception as e:
         result.append(CRLStatus.FAILED)
         result.append("CRL ERROR: {0}".format(e))
