@@ -51,7 +51,7 @@ class SSLChecker:
         self.verify = VerifyCallback()
         self.table_keys = ['host', 'open443', 'error', 'ssl_error', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o',
                            'pub_key_type', 'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days',
-                           'days_left', 'ocsp_status', 'crl_status', 'crl_reason']
+                           'days_left', 'ocsp_status', 'ocsp_error', 'crl_status', 'crl_reason']
         # db conn
         self.db_connection = get_connection()
 
@@ -207,7 +207,10 @@ class SSLChecker:
             self.total_warning += 1
 
         status = ocspchecker.get_ocsp_status(host)
-        if status:
+        status_len = len(status)
+        if status_len == 2:
+            context['ocsp_error'] = status[1]
+        elif status_len == 3:
             context['ocsp_status'] = status[2].split(": ")[1]
 
         # since crl check is time-consuming, we just check it when ocsp fail or ocsp get revoked status

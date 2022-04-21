@@ -83,11 +83,12 @@ def insert_data(conn, data):
                     validity_days,
                     valid_days_left,            
                     ocsp_status,
+                    ocsp_error,
                     crl_status,
                     crl_reason                  
                 )
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     try:
         cursor.execute(sql, data)
