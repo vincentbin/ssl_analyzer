@@ -18,7 +18,7 @@ create table certificate
     validity_days         int          null,
     valid_days_left       varchar(256) null,
     ocsp_status           varchar(256) null,
-    clr_status            varchar(256) null,
+    crl_status            varchar(256) null,
     crl_reason            varchar(256) null
 ) default character set utf8 collate utf8_general_ci;
 
