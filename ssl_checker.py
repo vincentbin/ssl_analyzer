@@ -454,13 +454,13 @@ def csv_reader(f_name, divide_size=1):
 if __name__ == '__main__':
     thread_num = 10
     hosts = csv_reader('top-1m.csv', thread_num)
-    SSLChecker = SSLChecker()
     # args = {
     #     # 'hosts': hosts
     #     'hosts': ['expired.badssl.com', 'revoked.badssl.com', 'google.com']
     # }
     import threading
     for item in hosts:
+        SSLChecker = SSLChecker()
         t = threading.Thread(target=SSLChecker.show_result, args=(SSLChecker.get_args(json_args={'hosts': item}),))
         t.setDaemon(False)
         t.start()
