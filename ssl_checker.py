@@ -56,7 +56,7 @@ class SSLChecker:
                            'pub_key_type', 'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days',
                            'days_left', 'ocsp_status', 'ocsp_error', 'crl_status', 'crl_reason']
         # db conn
-        # self.db_connection = get_connection()
+        self.db_connection = get_connection()
 
     def get_cert(self, host, port, user_args):
         """Connection to the host."""
@@ -289,7 +289,7 @@ class SSLChecker:
 
             # insert data to database
             insert_list = self.get_status_list(host, context)
-            # insert_data(self.db_connection, insert_list)
+            insert_data(self.db_connection, insert_list)
 
         if not user_args.json_true:
             self.border_msg(
@@ -455,10 +455,10 @@ if __name__ == '__main__':
     thread_num = 10
     hosts = csv_reader('top-1m.csv', thread_num)
     SSLChecker = SSLChecker()
-    args = {
-        # 'hosts': hosts
-        'hosts': ['expired.badssl.com', 'revoked.badssl.com', 'google.com']
-    }
+    # args = {
+    #     # 'hosts': hosts
+    #     'hosts': ['expired.badssl.com', 'revoked.badssl.com', 'google.com']
+    # }
     import threading
     for item in hosts:
         t = threading.Thread(target=SSLChecker.show_result, args=(SSLChecker.get_args(json_args={'hosts': item}),))
@@ -466,4 +466,4 @@ if __name__ == '__main__':
         t.start()
 
     # SSLChecker.show_result(SSLChecker.get_args(json_args=args))
-    # close_connection(SSLChecker.db_connection)
+    close_connection(SSLChecker.db_connection)
