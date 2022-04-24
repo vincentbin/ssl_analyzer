@@ -441,7 +441,7 @@ def csv_reader(f_name, divide_size=1):
     import csv
     print('start to read csv.')
     ret = []
-    sites_count = 100000 / divide_size
+    sites_count = 120000 / divide_size
     f = csv.reader(open(f_name, 'r'))
     for no in range(divide_size):
         temp = []
@@ -453,7 +453,7 @@ def csv_reader(f_name, divide_size=1):
 
 
 if __name__ == '__main__':
-    thread_num = 15
+    thread_num = 18
     hosts = csv_reader('top-1m.csv', thread_num)
     # args = {
     #     # 'hosts': hosts
