@@ -300,6 +300,7 @@ class SSLChecker:
                 # Exit the script just
                 return
         self.export_res(user_args, context)
+        close_connection(self.db_connection)
 
     def export_csv(self, context, filename, user_args):
         """Export all context results to CSV file."""
@@ -460,10 +461,9 @@ if __name__ == '__main__':
     # }
     import threading
     for item in hosts:
-        SSLChecker = SSLChecker()
-        t = threading.Thread(target=SSLChecker.show_result, args=(SSLChecker.get_args(json_args={'hosts': item}),))
+        checker = SSLChecker()
+        t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}), ))
         t.setDaemon(False)
         t.start()
 
     # SSLChecker.show_result(SSLChecker.get_args(json_args=args))
-    close_connection(SSLChecker.db_connection)
