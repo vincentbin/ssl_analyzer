@@ -453,7 +453,7 @@ def csv_reader(f_name, divide_size=1):
 
 
 if __name__ == '__main__':
-    thread_num = 18
+    thread_num = 20
     hosts = csv_reader('top-1m.csv', thread_num)
     # args = {
     #     # 'hosts': hosts
