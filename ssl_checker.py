@@ -452,18 +452,31 @@ def csv_reader(f_name, divide_size=1):
     return ret
 
 
-if __name__ == '__main__':
+def checker_with_thread():
     thread_num = 20
     hosts = csv_reader('top-1m.csv', thread_num)
-    # args = {
-    #     # 'hosts': hosts
-    #     'hosts': ['expired.badssl.com', 'revoked.badssl.com', 'google.com']
-    # }
     import threading
     for item in hosts:
         checker = SSLChecker()
-        t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}), ))
+        t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}),))
         t.setDaemon(False)
         t.start()
 
-    # SSLChecker.show_result(SSLChecker.get_args(json_args=args))
+
+def checker_without_thread():
+    hosts = csv_reader('top-1m.csv')
+    checker = SSLChecker()
+    args = {
+        # 'hosts': hosts[0]
+        'hosts': ['hexun.com','expired.badssl.com','revoked.badssl.com','google.com']
+    }
+
+    checker.show_result(checker.get_args(json_args=args))
+
+
+if __name__ == '__main__':
+    use_thread = True
+    if use_thread:
+        checker_with_thread()
+    else:
+        checker_without_thread()
