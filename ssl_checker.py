@@ -431,7 +431,7 @@ class SSLChecker:
                     fp.write(json.dumps(context[host]))
 
 
-def csv_reader(f_name, divide_size=1):
+def csv_reader(f_name, divide_size=1,total_num=120000):
     """
     read csv
     :param f_name: file name
@@ -441,7 +441,7 @@ def csv_reader(f_name, divide_size=1):
     import csv
     print('start to read csv.')
     ret = []
-    sites_count = 120000 / divide_size
+    sites_count = total_num / divide_size
     f = csv.reader(open(f_name, 'r'))
     for no in range(divide_size):
         temp = []
