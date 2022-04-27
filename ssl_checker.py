@@ -4,7 +4,7 @@ import sys
 import json
 from argparse import ArgumentParser, SUPPRESS
 from datetime import datetime
-from ssl import PROTOCOL_TLSv1
+from ssl import PROTOCOL_TLSv1_2
 from time import sleep
 from csv import DictWriter
 from ocspchecker import ocspchecker
@@ -73,7 +73,7 @@ class SSLChecker:
             print('{}Connecting to socket{}\n'.format(Clr.YELLOW, Clr.RST))
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        ssl_context = SSL.Context(PROTOCOL_TLSv1)
+        ssl_context = SSL.Context(PROTOCOL_TLSv1_2)
         ssl_context.load_verify_locations(self.cafile)
         ssl_context.set_verify(SSL.VERIFY_PEER, self.verify.callback)
 
