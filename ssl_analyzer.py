@@ -50,7 +50,7 @@ class SSLChecker:
     total_warning = 0
 
     def __init__(self):
-        self.cafile = "./cacert.pem"
+        self.cafile = "./data/cacert.pem"
         self.verify = VerifyCallback()
         self.table_keys = ['host', 'open443', 'error', 'ssl_error', 'cert_ver', 'cert_alg', 'issuer_c', 'issuer_o',
                            'pub_key_type', 'pub_key_bits', 'cert_exp', 'valid_from', 'valid_till', 'validity_days',
@@ -345,7 +345,7 @@ class SSLChecker:
 
     def get_args(self, json_args={}):
         """Set argparse options."""
-        parser = ArgumentParser(prog='ssl_checker.py', add_help=False,
+        parser = ArgumentParser(prog='ssl_analyzer.py', add_help=False,
                                 description="""Collects useful information about given host's SSL certificates.""")
 
         if len(json_args) > 0:
@@ -431,9 +431,10 @@ class SSLChecker:
                     fp.write(json.dumps(context[host]))
 
 
-def csv_reader(f_name, divide_size=1,total_num=120000):
+def csv_reader(f_name, divide_size=1, total_num=120000):
     """
     read csv
+    :param total_num: nums want to analyze
     :param f_name: file name
     :param divide_size:
     :return: domain list
@@ -454,7 +455,7 @@ def csv_reader(f_name, divide_size=1,total_num=120000):
 
 def checker_with_thread():
     thread_num = 20
-    hosts = csv_reader('top-1m.csv', thread_num)
+    hosts = csv_reader('./data/top-1m.csv', thread_num)
     import threading
     for item in hosts:
         checker = SSLChecker()
@@ -464,11 +465,11 @@ def checker_with_thread():
 
 
 def checker_without_thread():
-    hosts = csv_reader('top-1m.csv')
+    hosts = csv_reader('./data/top-1m.csv')
     checker = SSLChecker()
     args = {
         # 'hosts': hosts[0]
-        'hosts': ['hexun.com','expired.badssl.com','revoked.badssl.com','google.com']
+        'hosts': ['hexun.com', 'expired.badssl.com', 'revoked.badssl.com', 'google.com']
     }
 
     checker.show_result(checker.get_args(json_args=args))

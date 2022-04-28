@@ -1,7 +1,7 @@
 import threading
 import time
 import pymysql
-import ssl_checker
+import ssl_analyzer
 
 
 def init_test_conn():
@@ -47,6 +47,7 @@ def init_test_conn():
             cursor.execute(sql_create_table)
         connection.commit()
 
+
 def get_test_connection():
     """
     get db conn
@@ -66,11 +67,12 @@ def get_test_connection():
             print('wait for db.')
             time.sleep(2)
 
+
 if __name__ == "__main__":
     init_test_conn()
-    hosts = ssl_checker.csv_reader('top-1m.csv',divide_size=50,total_num=100)
+    hosts = ssl_analyzer.csv_reader('top-1m.csv', divide_size=50, total_num=100)
     for item in hosts:
-        checker = ssl_checker.SSLChecker()
+        checker = ssl_analyzer.SSLChecker()
         checker.db_connection = get_test_connection()
         t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}),))
         t.setDaemon(False)

@@ -9,4 +9,4 @@ RUN apt-get update \
 
 COPY . .
 
-ENTRYPOINT ["python", "/ssl_checker.py"]
+ENTRYPOINT ["python", "/ssl_analyzer.py"]
