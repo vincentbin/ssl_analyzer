@@ -1,5 +1,14 @@
 import time
 import pymysql
+import logging
+
+logger = logging.getLogger()
+logfile = '/log.txt'
+f_log = logging.FileHandler(logfile, mode='a')
+f_log.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+f_log.setFormatter(formatter)
+logger.addHandler(f_log)
 
 
 def get_connection():
@@ -95,6 +104,8 @@ def insert_data(conn, data):
         conn.commit()
     except Exception as e:
         conn.rollback()
+        logger.error(e)
+        logger.error(data)
         print(e)
     finally:
         cursor.close()
@@ -132,6 +143,8 @@ def batch_insert_data(conn, data):
         conn.commit()
     except Exception as e:
         conn.rollback()
+        logger.error(e)
+        logger.error(data)
         print(e)
     finally:
         cursor.close()
