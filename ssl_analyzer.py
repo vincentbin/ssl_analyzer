@@ -264,18 +264,22 @@ class SSLChecker:
             try:
                 # check if 443 port open
                 port = 443
-                is_open = self.check_port_open(host, port)
+                is_open, update_host = self.check_port_open(host, port)
                 if not is_open:
                     sub_context['open443'] = False  # it means the host did not open 443 port
                 else:
                     sub_context['open443'] = True
-                    cert = self.get_cert(host, port, user_args)
-                    self.get_cert_info(host, sub_context, cert)
-                    # sub_context['tcp_port'] = int(port)
-                    # use ssllabs api to analysis ssl
-                    # context = self.analyze_ssl(host, context, user_args)
-            except SSL.SysCallError:
-                sub_context['error'] = 'Failed: Misconfiguration SSL/TLS'
+                    if update_host:
+                        host = 'www.' + host
+                        sub_context['host'] = host
+                # even port not open, still try to get cert
+                cert = self.get_cert(host, port, user_args)
+                self.get_cert_info(host, sub_context, cert)
+                # sub_context['tcp_port'] = int(port)
+                # use ssllabs api to analysis ssl
+                # context = self.analyze_ssl(host, context, user_args)
+            # except SSL.SysCallError:
+            #     sub_context['error'] = 'Failed: Misconfiguration SSL/TLS'
             except Exception as error:
                 sub_context['error'] = str(error)
                 print('\t{}[-]{} {:<20s} Failed: {}\n'.format(Clr.RED, Clr.RST, host, error))
@@ -300,7 +304,7 @@ class SSLChecker:
                 # Exit the script just
                 return
         self.export_res(user_args, context)
-        close_connection(self.db_connection)
+        # close_connection(self.db_connection)
 
     def export_csv(self, context, filename, user_args):
         """Export all context results to CSV file."""
@@ -325,14 +329,28 @@ class SSLChecker:
 
     def check_port_open(self, host, port):
         is_open = True
+        is_success = True
+        should_update_host = False
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 conn = sock.connect_ex((host, port))
                 if (conn != 0):
-                    is_open = False
+                    is_success = False
             except Exception as err:
-                raise err
-        return is_open
+                is_success = False
+                pass
+
+            if not is_success:
+                try:
+                    host = 'www.' + host
+                    conn = sock.connect_ex((host, port))
+                    if conn != 0:
+                        is_open = False
+                    else:
+                        should_update_host = True
+                except Exception as err:
+                    raise err
+        return is_open, should_update_host
 
     def filter_hostname(self, host):
         """Remove unused characters and split by address and port."""
