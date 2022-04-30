@@ -220,7 +220,8 @@ class SSLChecker:
         crl_status = check_crl(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         context['crl_status'] = str(crl_status[0])
         if crl_status[0] is not CRLStatus.GOOD:
-            context['crl_reason'] = crl_status[1]
+            tmp_str = crl_status[1]
+            context['crl_reason'] = tmp_str[:250] # limit the string length to avoid database error
 
         return context
 
