@@ -43,7 +43,7 @@ def check_crl(cert_pem):
                         # Not all revoked certs have a reason extension.
                         pass
                     else:
-                        err += r.value.reason
+                        err += str(r.value.reason)
                     # err = f"Certificate with serial: {cert.serial_number} " \
                     #       f"is revoked since: {rev.revocation_date}"
                     result.append(err)
