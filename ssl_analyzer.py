@@ -304,7 +304,7 @@ class SSLChecker:
             if user_args.summary_true:
                 # Exit the script just
                 return
-        self.export_res(user_args, context)
+        # self.export_res(user_args, context)
         # close_connection(self.db_connection)
 
     def export_csv(self, context, filename, user_args):
