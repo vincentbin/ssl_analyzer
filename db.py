@@ -3,7 +3,7 @@ import pymysql
 import logging
 
 logger = logging.getLogger()
-logfile = '/log.txt'
+logfile = './log.txt'
 f_log = logging.FileHandler(logfile, mode='a')
 f_log.setLevel(logging.ERROR)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -121,22 +121,29 @@ def batch_insert_data(conn, data):
     cursor = conn.cursor()
     sql = """
             INSERT INTO
-                certificate(     
-                    host,              
-                    issued_domain,            
-                    issued_to,                
-                    issued_by,                
+                certificate(   
+                    host,
+                    open443,
+                    error,               
+                    ssl_error,            
+                    certificate_version,
+                    certificate_algorithm,
+                    issuer_country,
+                    issued_organization,
+                    public_key_type,
+                    public_key_bits,
+                    expired,                             
                     valid_from,               
                     valid_to,              
-                    validity_days,            
-                    certificate_sn,           
-                    certificate_version,      
-                    certificate_algorithm,    
-                    ocsp_status, 
-                    expired                  
+                    validity_days,
+                    valid_days_left,            
+                    ocsp_status,
+                    ocsp_error,
+                    crl_status,
+                    crl_reason                  
                 )
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     try:
         cursor.executemany(sql, data)

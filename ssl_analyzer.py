@@ -2,11 +2,9 @@
 import socket
 import sys
 import json
-from argparse import ArgumentParser, SUPPRESS
 from datetime import datetime
 from ssl import PROTOCOL_TLSv1
 from time import sleep
-from csv import DictWriter
 from ocspchecker import ocspchecker
 from crl_check import check_crl, CRLStatus
 from db import get_connection, insert_data, close_connection
@@ -33,11 +31,14 @@ print('ssl_analyzer_start')
 
 class VerifyCallback:
     def __init__(self):
-        self.errno = 0
+        self.connection = None
+        self.err_no = 0
+        self.depth = None
+        self.result = None
 
-    def callback(self, connection, cert, errno, depth, result):
+    def callback(self, connection, cert, err_no, depth, result):
         self.connection = connection
-        self.errno = errno
+        self.err_no = err_no
         self.depth = depth
         self.result = result
         return result
@@ -58,20 +59,8 @@ class SSLChecker:
         # db conn
         self.db_connection = get_connection()
 
-    def get_cert(self, host, port, user_args):
+    def get_cert(self, host, port):
         """Connection to the host."""
-        if user_args.socks:
-            import socks
-            if user_args.verbose:
-                print('{}Socks proxy enabled{}\n'.format(Clr.YELLOW, Clr.RST))
-
-            socks_host, socks_port = self.filter_hostname(user_args.socks)
-            socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, socks_host, int(socks_port), True)
-            socket.socket = socks.socksocket
-
-        if user_args.verbose:
-            print('{}Connecting to socket{}\n'.format(Clr.YELLOW, Clr.RST))
-
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         ssl_context = SSL.Context(PROTOCOL_TLSv1)
         ssl_context.load_verify_locations(self.cafile)
@@ -85,19 +74,9 @@ class SSLChecker:
         cert = ssl_connection.get_peer_certificate()
 
         sock.close()
-        if user_args.verbose:
-            print('{}Closing socket{}\n'.format(Clr.YELLOW, Clr.RST))
-
         return cert
 
-    def border_msg(self, message):
-        """Print the message in the box."""
-        row = len(message)
-        h = ''.join(['+'] + ['-' * row] + ['+'])
-        result = h + '\n' "|" + message + "|"'\n' + h
-        print(result)
-
-    def analyze_ssl(self, host, context, user_args):
+    def analyze_ssl(self, host, context):
         """Analyze the security of the SSL certificate."""
         try:
             from urllib.request import urlopen
@@ -106,27 +85,15 @@ class SSLChecker:
 
         api_url = 'https://api.ssllabs.com/api/v3/'
         while True:
-            if user_args.verbose:
-                print('{}Requesting analyze to {}{}\n'.format(Clr.YELLOW, api_url, Clr.RST))
-
             main_request = json.loads(urlopen(api_url + 'analyze?host={}'.format(host)).read().decode('utf-8'))
             if main_request['status'] in ('DNS', 'IN_PROGRESS'):
-                if user_args.verbose:
-                    print('{}Analyze waiting for reports to be finished (5 secs){}\n'.format(Clr.YELLOW, Clr.RST))
-
                 sleep(5)
                 continue
             elif main_request['status'] == 'READY':
-                if user_args.verbose:
-                    print('{}Analyze is ready{}\n'.format(Clr.YELLOW, Clr.RST))
-
                 break
 
         endpoint_data = json.loads(urlopen(api_url + 'getEndpointData?host={}&s={}'.format(
             host, main_request['endpoints'][0]['ipAddress'])).read().decode('utf-8'))
-
-        if user_args.verbose:
-            print('{}Analyze report message: {}{}\n'.format(Clr.YELLOW, endpoint_data['statusMessage'], Clr.RST))
 
         # if the certificate is invalid
         if endpoint_data['statusMessage'] == 'Certificate not valid for domain name':
@@ -160,7 +127,6 @@ class SSLChecker:
     def get_cert_info(self, host, context, cert):
         """Get all the information about cert and create a JSON file."""
         # context = {}
-        # context['host'] = host
         context['cert_ver'] = cert.get_version()  # Version Number v1/v2/v3
         context['cert_sn'] = str(cert.get_serial_number())  # Serial Number
         context['cert_alg'] = cert.get_signature_algorithm().decode()  # Signature Algorithm
@@ -244,22 +210,12 @@ class SSLChecker:
             ret.append(context[host][key])
         return ret
 
-    def show_result(self, user_args):
+    def show_result(self, args):
         """Get the context."""
         context = {}
-        start_time = datetime.now()
-        hosts = user_args.hosts
-
-        if not user_args.json_true and not user_args.summary_true:
-            self.border_msg(' Analyzing {} host(s) '.format(len(hosts)))
+        hosts = args['hosts']
 
         for host in hosts:
-            if user_args.verbose:
-                print('{}Working on host: {}{}\n'.format(Clr.YELLOW, host, Clr.RST))
-            # Check duplication
-            # if host in context.keys():
-            #     continue
-
             sub_context = dict.fromkeys(self.table_keys, 'null')
             sub_context['host'] = host
             try:
@@ -274,11 +230,8 @@ class SSLChecker:
                         host = 'www.' + host
                         sub_context['host'] = host
                 # even port not open, still try to get cert
-                cert = self.get_cert(host, port, user_args)
+                cert = self.get_cert(host, port)
                 self.get_cert_info(host, sub_context, cert)
-                # sub_context['tcp_port'] = int(port)
-                # use ssllabs api to analysis ssl
-                # context = self.analyze_ssl(host, context, user_args)
             # except SSL.SysCallError:
             #     sub_context['error'] = 'Failed: Misconfiguration SSL/TLS'
             except Exception as error:
@@ -288,7 +241,7 @@ class SSLChecker:
                 print('{}Canceling script...{}\n'.format(Clr.YELLOW, Clr.RST))
                 sys.exit(1)
 
-            sub_context['ssl_error'] = self.verify.errno
+            sub_context['ssl_error'] = str(self.verify.err_no)
             context[host] = sub_context
             self.print_status(context, host)
 
@@ -296,37 +249,7 @@ class SSLChecker:
             insert_list = self.get_status_list(host, context)
             insert_data(self.db_connection, insert_list)
 
-        if not user_args.json_true:
-            self.border_msg(
-                ' Successful: {} | Failed: {} | Valid: {} | Warning: {} | Expired: {} | Duration: {} '.format(
-                    len(hosts) - self.total_failed, self.total_failed, self.total_valid,
-                    self.total_warning, self.total_expired, datetime.now() - start_time))
-            if user_args.summary_true:
-                # Exit the script just
-                return
-        # self.export_res(user_args, context)
         close_connection(self.db_connection)
-
-    def export_csv(self, context, filename, user_args):
-        """Export all context results to CSV file."""
-        # prepend dict keys to write column headers
-        if user_args.verbose:
-            print('{}Generating CSV export{}\n'.format(Clr.YELLOW, Clr.RST))
-
-        with open(filename, 'w') as csv_file:
-            csv_writer = DictWriter(csv_file, list(context.items())[0][1].keys())
-            csv_writer.writeheader()
-            for host in context.keys():
-                csv_writer.writerow(context[host])
-
-    def export_html(self, context):
-        """Export JSON to HTML."""
-        html = json2html.convert(json=context)
-        file_name = datetime.strftime(datetime.now(), '%Y_%m_%d_%H_%M_%S')
-        with open('{}.html'.format(file_name), 'w') as html_file:
-            html_file.write(html)
-
-        return
 
     def check_port_open(self, host, port):
         is_open = True
@@ -353,102 +276,6 @@ class SSLChecker:
                     raise err
         return is_open, should_update_host
 
-    def filter_hostname(self, host):
-        """Remove unused characters and split by address and port."""
-        host = host.replace('http://', '').replace('https://', '').replace('/', '')
-        port = 443
-        if ':' in host:
-            host, port = host.split(':')
-
-        return host, port
-
-    def get_args(self, json_args={}):
-        """Set argparse options."""
-        parser = ArgumentParser(prog='ssl_analyzer.py', add_help=False,
-                                description="""Collects useful information about given host's SSL certificates.""")
-
-        if len(json_args) > 0:
-            args = parser.parse_args()
-            setattr(args, 'json_true', True)
-            setattr(args, 'verbose', False)
-            setattr(args, 'csv_enabled', False)
-            setattr(args, 'html_true', False)
-            setattr(args, 'json_save_true', False)
-            setattr(args, 'socks', False)
-            setattr(args, 'analyze', False)
-            setattr(args, 'hosts', json_args['hosts'])
-            return args
-
-        group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-H', '--host', dest='hosts', nargs='*',
-                           required=False, help='Hosts as input separated by space')
-        group.add_argument('-f', '--host-file', dest='host_file',
-                           required=False, help='Hosts as input from file')
-        parser.add_argument('-s', '--socks', dest='socks',
-                            default=False, metavar='HOST:PORT',
-                            help='Enable SOCKS proxy for connection')
-        parser.add_argument('-c', '--csv', dest='csv_enabled',
-                            default=False, metavar='FILENAME.CSV',
-                            help='Enable CSV file export')
-        parser.add_argument('-j', '--json', dest='json_true',
-                            action='store_true', default=False,
-                            help='Enable JSON in the output')
-        parser.add_argument('-S', '--summary', dest='summary_true',
-                            action='store_true', default=False,
-                            help='Enable summary output only')
-        parser.add_argument('-x', '--html', dest='html_true',
-                            action='store_true', default=False,
-                            help='Enable HTML file export')
-        parser.add_argument('-J', '--json-save', dest='json_save_true',
-                            action='store_true', default=False,
-                            help='Enable JSON export individually per host')
-        parser.add_argument('-a', '--analyze', dest='analyze',
-                            default=False, action='store_true',
-                            help='Enable SSL security analysis on the host')
-        parser.add_argument('-v', '--verbose', dest='verbose',
-                            default=False, action='store_true',
-                            help='Enable verbose to see what is going on')
-        parser.add_argument('-h', '--help', default=SUPPRESS,
-                            action='help',
-                            help='Show this help message and exit')
-
-        args = parser.parse_args()
-
-        # Get hosts from file if provided
-        if args.host_file:
-            with open(args.host_file) as f:
-                args.hosts = f.read().splitlines()
-
-        # Checks hosts list
-        if isinstance(args.hosts, list):
-            if len(args.hosts) == 0:
-                parser.print_help()
-                sys.exit(0)
-
-        return args
-
-    def export_res(self, user_args, context):
-        # CSV export if -c/--csv is specified
-        if user_args.csv_enabled:
-            self.export_csv(context, user_args.csv_enabled, user_args)
-
-        # HTML export if -x/--html is specified
-        if user_args.html_true:
-            self.export_html(context)
-
-        # While using the script as a module
-        if __name__ != '__main__':
-            return json.dumps(context)
-
-        # Enable JSON output if -j/--json argument specified
-        if user_args.json_true:
-            print(json.dumps(context))
-
-        if user_args.json_save_true:
-            for host in context.keys():
-                with open(host + '.json', 'w', encoding='UTF-8') as fp:
-                    fp.write(json.dumps(context[host]))
-
 
 def csv_reader(f_name, divide_size=1, total_num=120000):
     """
@@ -472,13 +299,12 @@ def csv_reader(f_name, divide_size=1, total_num=120000):
     return ret
 
 
-def checker_with_thread():
-    thread_num = 20
+def checker_with_thread(thread_num=20):
     hosts = csv_reader('./data/top-1m.csv', thread_num)
     import threading
     for item in hosts:
         checker = SSLChecker()
-        t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}),))
+        t = threading.Thread(target=checker.show_result, args=({'hosts': item},))
         t.setDaemon(False)
         t.start()
 
@@ -487,16 +313,15 @@ def checker_without_thread():
     hosts = csv_reader('./data/top-1m.csv')
     checker = SSLChecker()
     args = {
-        # 'hosts': hosts[0]
-        'hosts': ['hexun.com', 'expired.badssl.com', 'revoked.badssl.com', 'google.com']
+        'hosts': hosts[0]
+        # 'hosts': ['hexun.com', 'expired.badssl.com', 'revoked.badssl.com', 'google.com']
     }
-
-    checker.show_result(checker.get_args(json_args=args))
+    checker.show_result(args)
 
 
 if __name__ == '__main__':
-    use_thread = True
-    if use_thread:
+    use_threads = True
+    if use_threads:
         checker_with_thread()
     else:
         checker_without_thread()

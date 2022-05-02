@@ -10,7 +10,6 @@ RUN apt-get update \
 COPY ./data /data
 ADD ./crl_check.py /
 ADD ./db.py /
-ADD ./socks.py /
 ADD ./ssl_analyzer.py /
 ADD ./test.py /
 

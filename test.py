@@ -74,6 +74,6 @@ if __name__ == "__main__":
     for item in hosts:
         checker = ssl_analyzer.SSLChecker()
         checker.db_connection = get_test_connection()
-        t = threading.Thread(target=checker.show_result, args=(checker.get_args(json_args={'hosts': item}),))
+        t = threading.Thread(target=checker.show_result, args=({'hosts': item},))
         t.setDaemon(False)
         t.start()
