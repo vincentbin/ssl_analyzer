@@ -282,6 +282,9 @@ def csv_reader(f_name, thread_num=1, total_num=120000):
     import csv
     print('start to read csv.')
     ret = []
+    if total_num == 0:
+        total_num = len(open(f_name).readlines())
+    print('total number of hosts to analyze: ', total_num)
     sites_count = total_num / thread_num
     left = total_num % thread_num
     f = csv.reader(open(f_name, 'r'))
