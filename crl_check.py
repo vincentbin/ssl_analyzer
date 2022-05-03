@@ -8,7 +8,7 @@ class CRL_ERROR(Exception):
     pass
 
 
-class CRLStatus():
+class CRLStatus:
     GOOD = 'GOOD'
     REVOKED = 'REVOKED'
     FAILED = 'FAILED'
