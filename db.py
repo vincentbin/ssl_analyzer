@@ -29,7 +29,7 @@ def get_connection():
             return conn
         except Exception as e:
             print('wait for db.')
-            time.sleep(2)
+            time.sleep(3)
 
 
 def close_connection(conn):

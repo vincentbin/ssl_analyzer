@@ -6,6 +6,8 @@ from datetime import datetime
 from ssl import PROTOCOL_TLSv1
 from time import sleep
 from ocspchecker import ocspchecker
+
+from conf_reader import ReadConfig
 from crl_check import check_crl, CRLStatus
 from db import get_connection, insert_data, close_connection
 
@@ -78,10 +80,7 @@ class SSLChecker:
 
     def analyze_ssl(self, host, context):
         """Analyze the security of the SSL certificate."""
-        try:
-            from urllib.request import urlopen
-        except ImportError:
-            print('import err.')
+        from urllib.request import urlopen
 
         api_url = 'https://api.ssllabs.com/api/v3/'
         while True:
@@ -126,7 +125,6 @@ class SSLChecker:
 
     def get_cert_info(self, host, context, cert):
         """Get all the information about cert and create a JSON file."""
-        # context = {}
         context['cert_ver'] = cert.get_version()  # Version Number v1/v2/v3
         context['cert_sn'] = str(cert.get_serial_number())  # Serial Number
         context['cert_alg'] = cert.get_signature_algorithm().decode()  # Signature Algorithm
@@ -140,7 +138,6 @@ class SSLChecker:
         cert_subject = cert.get_subject()
         context['issued_to'] = cert_subject.CN
         context['issued_o'] = cert_subject.O
-
         context['cert_sha1'] = cert.digest('sha1').decode()
         # context['cert_sans'] = self.get_cert_sans(cert)  # X509v3 Subject Alternative Name in Extensions
         pub = cert.get_pubkey()
@@ -150,11 +147,9 @@ class SSLChecker:
         context['cert_exp'] = cert.has_expired()
         context['cert_valid'] = False if cert.has_expired() else True
         # Valid period
-        valid_from = datetime.strptime(cert.get_notBefore().decode('ascii'),
-                                       '%Y%m%d%H%M%SZ')
+        valid_from = datetime.strptime(cert.get_notBefore().decode('ascii'), '%Y%m%d%H%M%SZ')
         context['valid_from'] = valid_from.strftime('%Y-%m-%d')
-        valid_till = datetime.strptime(cert.get_notAfter().decode('ascii'),
-                                       '%Y%m%d%H%M%SZ')
+        valid_till = datetime.strptime(cert.get_notAfter().decode('ascii'), '%Y%m%d%H%M%SZ')
         context['valid_till'] = valid_till.strftime('%Y-%m-%d')
 
         # Validity days
@@ -165,8 +160,7 @@ class SSLChecker:
         context['days_left'] = (valid_till - now).days
 
         # Valid days left
-        context['valid_days_to_expire'] = (datetime.strptime(context['valid_till'],
-                                                             '%Y-%m-%d') - datetime.now()).days
+        context['valid_days_to_expire'] = (datetime.strptime(context['valid_till'], '%Y-%m-%d') - datetime.now()).days
         if cert.has_expired():
             self.total_expired += 1
         else:
@@ -192,7 +186,7 @@ class SSLChecker:
         return context
 
     def print_status(self, context, host):
-        """Print all the usefull info about host."""
+        """Print all the useful info about host."""
         print('\t{}[+]{} {}\n\t{}'.format(Clr.GREEN, Clr.RST, host, '-' * (len(host) + 5)))
         for key, value in context[host].items():
             print('\t\t', key, ': ', value)
@@ -258,7 +252,7 @@ class SSLChecker:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 conn = sock.connect_ex((host, port))
-                if (conn != 0):
+                if conn != 0:
                     is_success = False
             except Exception as err:
                 is_success = False
@@ -277,21 +271,26 @@ class SSLChecker:
         return is_open, should_update_host
 
 
-def csv_reader(f_name, divide_size=1, total_num=120000):
+def csv_reader(f_name, thread_num=1, total_num=120000):
     """
     read csv
+    :param thread_num: multi-thread numbers
     :param total_num: nums want to analyze
     :param f_name: file name
-    :param divide_size:
-    :return: domain list
+    :return: domain list [[...], [...], [...], ...]
     """
     import csv
     print('start to read csv.')
     ret = []
-    sites_count = total_num / divide_size
+    sites_count = total_num / thread_num
+    left = total_num % thread_num
     f = csv.reader(open(f_name, 'r'))
-    for no in range(divide_size):
+    for no in range(thread_num):
         temp = []
+        if no == 0:
+            for j in range(int(left)):
+                line = next(f)
+                temp.append(line[1])
         for i in range(int(sites_count)):
             line = next(f)
             temp.append(line[1])
@@ -299,8 +298,12 @@ def csv_reader(f_name, divide_size=1, total_num=120000):
     return ret
 
 
-def checker_with_thread(thread_num=20):
-    hosts = csv_reader('./data/top-1m.csv', thread_num)
+def checker_with_multi_thread(hosts):
+    """
+    multi thread analyze
+    :param hosts: [[]]
+    :return:
+    """
     import threading
     for item in hosts:
         checker = SSLChecker()
@@ -309,19 +312,24 @@ def checker_with_thread(thread_num=20):
         t.start()
 
 
-def checker_without_thread():
-    hosts = csv_reader('./data/top-1m.csv')
+def checker_without_multi_thread(hosts):
+    """
+    single thread analyze
+    test: hosts': ['hexun.com', 'expired.badssl.com', 'revoked.badssl.com', 'google.com']
+    :param hosts: [[]]
+    :return:
+    """
     checker = SSLChecker()
-    args = {
-        'hosts': hosts[0]
-        # 'hosts': ['hexun.com', 'expired.badssl.com', 'revoked.badssl.com', 'google.com']
-    }
-    checker.show_result(args)
+    checker.show_result({'hosts': hosts[0]})
 
 
 if __name__ == '__main__':
-    use_threads = True
+    config = ReadConfig()
+    use_threads = config.get_multi_thread_opt()
+    host_list = csv_reader(config.get_csv_path(),
+                           thread_num=config.get_thread_num(),
+                           total_num=config.get_analyze_nums())
     if use_threads:
-        checker_with_thread()
+        checker_with_multi_thread(host_list)
     else:
-        checker_without_thread()
+        checker_without_multi_thread(host_list)
