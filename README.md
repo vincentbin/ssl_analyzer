@@ -57,3 +57,9 @@ https://user-images.githubusercontent.com/17155788/166204713-74a30b28-65e2-4f70-
 ├── LICENSE                     // LICENSE
 ├── README                      // README
 ```
+
+## Our Analysis
+Use 20 threads to execute and analyze 120,000 domain name information in the top-1m file concurrently.
+
+### Result
+http://nbviewer.org/github/vincentbin/ssl_analyzer/blob/main/analysis/analysis_data_v2.ipynb
