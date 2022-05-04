@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import requests
 from cryptography import x509
 from cryptography.x509.extensions import ExtensionNotFound
