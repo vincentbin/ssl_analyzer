@@ -46,7 +46,7 @@ class VerifyCallback:
         return result
 
 
-class SSLChecker:
+class SSLAnalyzer:
     total_valid = 0
     total_expired = 0
     total_failed = 0
@@ -309,7 +309,7 @@ def checker_with_multi_thread(hosts):
     """
     import threading
     for item in hosts:
-        checker = SSLChecker()
+        checker = SSLAnalyzer()
         t = threading.Thread(target=checker.show_result, args=({'hosts': item},))
         t.setDaemon(False)
         t.start()
@@ -322,7 +322,7 @@ def checker_without_multi_thread(hosts):
     :param hosts: [[]]
     :return:
     """
-    checker = SSLChecker()
+    checker = SSLAnalyzer()
     checker.show_result({'hosts': hosts[0]})
 
 
